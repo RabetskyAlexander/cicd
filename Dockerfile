@@ -35,11 +35,14 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-script
 COPY . /var/www/html
 
 # Установка прав доступа
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage \
-    && chmod -R 755 /var/www/html/bootstrap/cache
+COPY --chown=www-data:www-data . /var/www/html
+
+# Только для конкретных папок Laravel устанавливаем особые права
+RUN mkdir -p /var/www/html/storage/framework/views \
+    && mkdir -p /var/www/html/storage/framework/cache \
+    && mkdir -p /var/www/html/storage/logs \
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
 
 EXPOSE 9000
-
 CMD ["php-fpm"]
-
