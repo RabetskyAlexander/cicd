@@ -163,17 +163,55 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "cd ${{ secrets.DEPLOY_PATH }} && \
-            composer install --no-dev --optimize-autoloader --no-interaction && \
-            php artisan migrate --force && \
-            php artisan config:clear && \
-            php artisan config:cache && \
-            php artisan route:clear && \
-            php artisan route:cache && \
-            php artisan view:clear && \
-            php artisan view:cache && \
-            php artisan cache:clear && \
-            php artisan optimize && \
-            chmod -R 755 storage bootstrap/cache && \
-            (chown -R www-data:www-data storage bootstrap/cache || true) && \
+            if command -v docker >/dev/null 2>&1 && (docker-compose ps app 2>/dev/null | grep -q Up || docker ps --format '{{.Names}}' | grep -q laravel_app); then \
+              docker-compose exec -T app composer install --no-dev --optimize-autoloader --no-interaction && \
+              docker-compose exec -T app php artisan migrate --force && \
+              docker-compose exec -T app php artisan config:clear && \
+              docker-compose exec -T app php artisan config:cache && \
+              docker-compose exec -T app php artisan route:clear && \
+              docker-compose exec -T app php artisan route:cache && \
+              docker-compose exec -T app php artisan view:clear && \
+              docker-compose exec -T app php artisan view:cache && \
+              docker-compose exec -T app php artisan cache:clear && \
+              docker-compose exec -T app php artisan optimize && \
+              docker-compose exec -T app chmod -R 755 storage bootstrap/cache && \
+              (docker-compose exec -T -u root app chown -R www-data:www-data storage bootstrap/cache || true); \
+            elif command -v docker >/dev/null 2>&1; then \
+              docker run --rm -v \$(pwd):/app -w /app composer:latest install --no-dev --optimize-autoloader --no-interaction && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan migrate --force && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan config:clear && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan config:cache && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan route:clear && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan route:cache && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan view:clear && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan view:cache && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan cache:clear && \
+              docker run --rm -v \$(pwd):/app -w /app --network host php:8.4-cli php artisan optimize && \
+              chmod -R 755 storage bootstrap/cache && \
+              (chown -R www-data:www-data storage bootstrap/cache || true); \
+            else \
+              if ! command -v composer >/dev/null 2>&1; then \
+                if [ ! -f composer.phar ]; then \
+                  php -r \"copy('https://getcomposer.org/installer', 'composer-setup.php');\" && \
+                  php composer-setup.php && \
+                  rm composer-setup.php; \
+                fi && \
+                COMPOSER_CMD='php composer.phar'; \
+              else \
+                COMPOSER_CMD='composer'; \
+              fi && \
+              \$COMPOSER_CMD install --no-dev --optimize-autoloader --no-interaction && \
+              php artisan migrate --force && \
+              php artisan config:clear && \
+              php artisan config:cache && \
+              php artisan route:clear && \
+              php artisan route:cache && \
+              php artisan view:clear && \
+              php artisan view:cache && \
+              php artisan cache:clear && \
+              php artisan optimize && \
+              chmod -R 755 storage bootstrap/cache && \
+              (chown -R www-data:www-data storage bootstrap/cache || true); \
+            fi && \
             (sudo systemctl reload php8.4-fpm || sudo systemctl reload php-fpm || true)"
 
